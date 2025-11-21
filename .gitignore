@@ -30,3 +30,4 @@ bin/
 .DS_Store
 /DW_ExchangesRate_Nhom6.iml
 .env
+db/*

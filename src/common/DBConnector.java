@@ -39,10 +39,10 @@ public class DBConnector {
 
                         switch (key) {
                             case "MYSQL_HOST": DB_HOST = val; break;
-                            case "MYSQL_ROOT_PASSWORD": DB_PASS = val; break;
                             case "MYSQL_CONTROL": DB_CONTROL = val; break;
                             case "MYSQL_STAGING": DB_STAGING = val; break;
                             case "MYSQL_WAREHOUSE": DB_WAREHOUSE = val; break;
+                            case "MYSQL_ROOT_PASSWORD": DB_PASS = val; break;
                         }
                     }
                 }
