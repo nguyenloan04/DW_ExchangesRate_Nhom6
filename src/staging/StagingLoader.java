@@ -15,7 +15,7 @@ public class StagingLoader {
             if (f != null)
                 conn.prepareCall("{call Clean_Staging_By_Date('" + f.split(",")[1].split(" ")[0] + "')}").execute();
 
-            PreparedStatement ps = conn.prepareStatement("INSERT INTO stg_exchange_rate (sourceDateUTC,sourceDateVN,baseCurrency,currency,rate,source_link) VALUES (?,?,?,?,?,?)");
+            PreparedStatement ps = conn.prepareStatement("INSERT INTO stg_exchange_rate (sourceDateUTC,sourceDateVN,baseCurrency,currency,rate,source_link,loadedAt) VALUES (?,?,?,?,?,?,NOW())");
             conn.setAutoCommit(false);
             String l;
             while ((l = br.readLine()) != null) {

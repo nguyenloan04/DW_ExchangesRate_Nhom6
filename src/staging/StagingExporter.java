@@ -1,44 +1,42 @@
 package staging;
-
-import common.*;
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import java.io.*;
-import java.sql.*;
+import common.*; import org.json.JSONArray; import org.json.JSONObject; import java.io.*; import java.sql.*;
 
 public class StagingExporter {
     public static void main(String[] args) {
-        String dDir = args[0];
-        String tDate = (args.length > 1) ? args[1] : null;
-        String dw = (tDate != null) ? "WHERE dateValue='" + tDate + "'" : "WHERE dateValue=CURDATE()";
-
+        String dataDir = args[0];
         try (Connection conn = DBConnector.getConnection(DBConnector.DB_STAGING)) {
-            // 1. Curr
-            export(conn, "SELECT DISTINCT currencyCode, currencyName FROM tmp_dim_currency", dDir + "/export_curr.json");
-            // 2. Date
-            export(conn, "SELECT * FROM tmp_dim_date " + dw, dDir + "/export_date.json");
-            // 3. Fact
-            export(conn, "SELECT * FROM tmp_fact_exchange_rate " + dw, dDir + "/export_fact.json");
-            LogUtils.log("RUNNING", "Exported 3 JSONs");
+
+            // 1. Export Currency
+            export(conn, "SELECT * FROM tmp_dim_currency", dataDir + "/export_curr.json");
+
+            // 2. Export Date
+            export(conn, "SELECT * FROM tmp_dim_date", dataDir + "/export_date.json");
+
+            // 3. Export Fact
+            export(conn, "SELECT * FROM tmp_fact_exchange_rate", dataDir + "/export_fact.json");
+
+            LogUtils.log("RUNNING", "Exported 3 JSONs from Staging Temp Tables");
             System.exit(0);
         } catch (Exception e) {
-            LogUtils.log("ERROR", e.getMessage());
+            LogUtils.log("ERROR", "Exporter: " + e.getMessage());
             System.exit(1);
         }
     }
 
-    static void export(Connection c, String q, String f) throws Exception {
-        ResultSet rs = c.createStatement().executeQuery(q);
+    private static void export(Connection conn, String sql, String filePath) throws Exception {
+        Statement stmt = conn.createStatement();
+        ResultSet rs = stmt.executeQuery(sql);
         ResultSetMetaData md = rs.getMetaData();
-        JSONArray a = new JSONArray();
+        JSONArray arr = new JSONArray();
+
         while (rs.next()) {
-            JSONObject o = new JSONObject();
-            for (int i = 1; i <= md.getColumnCount(); i++) o.put(md.getColumnLabel(i), rs.getObject(i));
-            a.put(o);
+            JSONObject obj = new JSONObject();
+            for (int i = 1; i <= md.getColumnCount(); i++) {
+                // Tự động map tên cột trong DB thành key JSON
+                obj.put(md.getColumnLabel(i), rs.getObject(i));
+            }
+            arr.put(obj);
         }
-        try (FileWriter fw = new FileWriter(f)) {
-            fw.write(a.toString());
-        }
+        try (FileWriter fw = new FileWriter(filePath)) { fw.write(arr.toString()); }
     }
 }

@@ -37,7 +37,7 @@ public class DataCrawler {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             String dSQL = sdf.format(new Date(json.getLong("timestamp") * 1000L));
             String fName = "exchange_" + (tDate != null ? tDate : sdf.format(new Date())) + ".csv";
-
+            String fPath = dataDir + "/" + fName;
             // Save Map Currency
             String currResp = new Scanner(new URL(rs.getString("currenciesUrl")).openStream()).useDelimiter("\\A").next();
             try (FileWriter fw = new FileWriter(dataDir + "/currencies.json")) {
@@ -52,10 +52,11 @@ public class DataCrawler {
                 p.print(dataDir + "/" + fName);
             }
 
-            PreparedStatement ps = conn.prepareStatement("INSERT INTO file_log (fileName,source_link,status,recordCount) VALUES (?,?,'FINISHED',?)");
-            ps.setString(1, fName);
-            ps.setString(2, safeUrl);
-            ps.setInt(3, rates.length());
+            PreparedStatement ps = conn.prepareStatement("INSERT INTO file_log (fileConfigId, fileName, filePath, status, totalRecords, extractedAt) VALUES (?, ?, ?, 'FINISHED', ?, NOW())");
+            ps.setInt(1, rs.getInt("id"));
+            ps.setString(2, fName);
+            ps.setString(3, fPath);
+            ps.setInt(4, rates.length());
             ps.executeUpdate();
             LogUtils.log("RUNNING", "Crawled from " + safeUrl);
             System.exit(0);
