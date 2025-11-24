@@ -41,8 +41,8 @@ public class WarehouseLoader {
                 JSONObject o = arrFact.getJSONObject(i);
                 // Key JSON khớp bảng tmp_fact_exchange_rate
                 csF.setString(1, o.getString("dateValue"));
-                csF.setString(2, o.getString("baseCurrencyCode"));
-                csF.setString(3, o.getString("currencyCode"));
+                csF.setString(2, o.getString("currency"));
+                csF.setString(3, o.getString("baseCurrency"));
                 csF.setDouble(4, o.getDouble("rate"));
                 csF.addBatch();
                 if(i%500==0) csF.executeBatch();
