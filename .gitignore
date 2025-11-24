@@ -31,4 +31,4 @@ bin/
 /DW_ExchangesRate_Nhom6.iml
 .env
 db/*
-/src/META-INF/MANIFEST.MF
+/src/META-INF/*/META-INF/MANIFEST.MF
