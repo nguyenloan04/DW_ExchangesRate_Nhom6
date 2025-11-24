@@ -4,9 +4,12 @@ import common.*;
 
 import java.io.*;
 import java.sql.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class StagingLoader {
     public static void main(String[] args) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         try (Connection conn = DBConnector.getConnection(DBConnector.DB_STAGING)) {
             BufferedReader br = new BufferedReader(new FileReader(args[0]));
             br.mark(1024);
@@ -20,8 +23,10 @@ public class StagingLoader {
             String l;
             while ((l = br.readLine()) != null) {
                 String[] d = l.split(",");
-                ps.setString(1, d[0]);
-                ps.setString(2, d[1]);
+                LocalDateTime dtUTC = LocalDateTime.parse(d[0], formatter);
+                LocalDateTime dtVN = LocalDateTime.parse(d[1], formatter);
+                ps.setTimestamp(1, Timestamp.valueOf(dtUTC));
+                ps.setTimestamp(2, Timestamp.valueOf(dtVN));
                 ps.setString(3, d[2]);
                 ps.setString(4, d[3]);
                 ps.setDouble(5, Double.parseDouble(d[4]));
