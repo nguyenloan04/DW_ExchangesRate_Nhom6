@@ -6,7 +6,7 @@ public class LogUtils {
     public static void log(String status, String message) {
         try (Connection conn = DBConnector.getConnection(DBConnector.DB_CONTROL)) {
             // Update dòng log đang chạy (status='RUNNING') của processId=1
-            String sql = "UPDATE etl_log SET status = ?, message = ?, endTime = CASE WHEN ? IN ('SUCCESS', 'ERROR') THEN NOW() ELSE NULL END WHERE processId = 1 AND status = 'RUNNING' ORDER BY id DESC LIMIT 1";
+            String sql = "UPDATE etl_log SET status = ?, message = ?, endedAt = CASE WHEN ? IN ('SUCCESS', 'ERROR') THEN NOW() ELSE NULL END WHERE processId = 1 AND status = 'RUNNING' ORDER BY id DESC LIMIT 1";
 
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setString(1, status);
