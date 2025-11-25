@@ -14,17 +14,31 @@ public class DataCrawler {
         String dataDir = args[0];
         String targetDate = (args.length > 1) ? args[1] : null;
 
+        int currentLogId = -1;
         try (Connection conn = DBConnector.getConnection(DBConnector.DB_CONTROL)) {
             // 1. Lấy Config
             ResultSet rs = conn.createStatement().executeQuery("SELECT * FROM file_config LIMIT 1");
-            rs.next();
+            if (!rs.next()) throw new Exception("Config not found");
+            int configId = rs.getInt("id");
             String apiKey = rs.getString("apiKey");
             String reqUrl;
 
             // Lấy đường dẫn mẫu từ DB (VD: .../exchange_rates_{yyyymmdd}.csv)
             String templatePath = rs.getString("filePath");
             String dbDateFormat = rs.getString("dateFormat"); // VD: yyyyMMdd
+            String initSql = "INSERT INTO file_log (fileConfigId, status, extractedAt) VALUES (?, 'EXTRACTING', NOW())";
 
+            // Quan trọng: Statement.RETURN_GENERATED_KEYS để lấy lại ID vừa insert
+            PreparedStatement psInit = conn.prepareStatement(initSql, Statement.RETURN_GENERATED_KEYS);
+            psInit.setInt(1, configId);
+            psInit.executeUpdate();
+
+            ResultSet keys = psInit.getGeneratedKeys();
+            if (keys.next()) {
+                currentLogId = keys.getInt(1); // Lưu lại ID: Ví dụ log_id = 50
+            }
+
+            LogUtils.log("RUNNING", "Crawler started. Log ID: " + currentLogId);
             // 2. Xác định URL gọi API
             String safeUrl;
             if (targetDate != null) {
@@ -83,16 +97,36 @@ public class DataCrawler {
             try(PrintWriter p = new PrintWriter(new FileWriter(dataDir + "/latest_file.txt"))){ p.print(finalPath); }
 
             // 6. Log DB
-            PreparedStatement ps = conn.prepareStatement("INSERT INTO file_log (fileConfigId, fileName, filePath, source_link, status, totalRecords, extractedAt) VALUES (?, ?, ?, ?, 'FINISHED', ?, NOW())");
-            ps.setInt(1, rs.getInt("id"));
-            ps.setString(2, fileName);
-            ps.setString(3, finalPath);
-            ps.setString(4, safeUrl);
-            ps.setInt(5, rates.length());
-            ps.executeUpdate();
-
+            if (currentLogId != -1) {
+                String updateSql = "UPDATE file_log SET fileName=?, filePath=?, source_link=?, status='FINISHED', totalRecords=? WHERE id=?";
+                PreparedStatement psUpdate = conn.prepareStatement(updateSql);
+                psUpdate.setString(1, fileName);
+                psUpdate.setString(2, finalPath);
+                psUpdate.setString(3, safeUrl);
+                psUpdate.setInt(4, rates.length());
+                psUpdate.setInt(5, currentLogId); // Update đúng dòng log ban đầu
+                psUpdate.executeUpdate();
+            }
             LogUtils.log("RUNNING", "Crawled to file: " + fileName);
             System.exit(0);
-        } catch (Exception e) { LogUtils.log("ERROR", e.getMessage()); System.exit(1); }
+        } catch (Exception e) {
+            e.printStackTrace();
+            try {
+                // Mở kết nối mới để ghi log lỗi (phòng trường hợp kết nối cũ bị đóng)
+                if (currentLogId != -1) {
+                    Connection errConn = DBConnector.getConnection(DBConnector.DB_CONTROL);
+                    String errSql = "UPDATE file_log SET status='ERROR' WHERE id=?";
+                    PreparedStatement psErr = errConn.prepareStatement(errSql);
+                    psErr.setInt(1, currentLogId);
+                    psErr.executeUpdate();
+                    errConn.close();
+                }
+            } catch (Exception ex) {
+                System.err.println("Fatal: Could not update error log.");
+            }
+
+            LogUtils.log("ERROR", e.getMessage());
+            System.exit(1);
+        }
     }
 }
