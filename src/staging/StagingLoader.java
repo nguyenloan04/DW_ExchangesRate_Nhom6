@@ -10,27 +10,32 @@ import java.time.format.DateTimeParseException;
 
 public class StagingLoader {
     public static void main(String[] args) {
-        if (args.length < 1) {
-            System.err.println("Missing path to .csv");
-            LogUtils.log("ERROR", "StagingLoader: Missing CSV path argument");
-            System.exit(1);
-        }
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        // 2. Kết nối đến db.exchange_staging trên VPS
         try (Connection conn = DBConnector.getConnection(DBConnector.DB_STAGING)) {
             conn.setAutoCommit(false);
-            // 2. XỬ LÝ LOGIC CLEANING (Xóa dữ liệu cũ)
+            // 3. Lấy input đường dẫn file csv trong hệ thống từ lệnh (java -jar stagingLoader.jar /dw_t5c1n6/staging/data/exchange_rates_yyyyMMdd.csv)
+            if (args.length < 1) {
+                System.err.println("Missing path to .csv");
+                LogUtils.log("ERROR", "StagingLoader: Missing CSV path argument");
+                System.exit(1);
+            }
+            // 4. Kiểm tra có đọc trước được nội dung trog file csv hay không
             try (BufferedReader brCheck = new BufferedReader(new FileReader(args[0]))) {
                 String firstLine = brCheck.readLine();
-                if (firstLine != null && !firstLine.isEmpty()) {
+                if (firstLine != null && !firstLine.isEmpty()) { //5. Kiểm tra xem file csv có rỗng hay không?
                     String[] columns = firstLine.split(",");
-                    if (columns.length > 1) {
-                        // Tách ngày an toàn hơn
+                    if (columns.length > 1) { //6. Kiểm tra xem số cột của file csv có đủ không
+                        // Tách ngày
+                        //7. Lấy dữ liệu ngày (date) trong dòng đầu tiên của file csv
                         String dateStr = columns[1].split(" ")[0]; // Lấy YYYY-MM-DD
                         System.out.println("Cleaning data for date: " + dateStr);
 
-                        // Gọi Procedure Clean
+                        // gọi procedure Clean_staging_by_date để xóa dữ liệu ngày hôm đó trong 2 bảng stg_exchange_rate và tmp_fact_exchange_rate
+                        //input: date (được lấy từ dòng đầu tiên của file csv)
+
                         try {
-                            conn.prepareCall("{call Clean_Staging_By_Date('" + dateStr + "')}").execute();
+                            conn.prepareCall("{call Clean_Staging_By_Date('" + dateStr + "')}").execute(); //Xóa dữ liệu trong 2 bảng stg_exchange_rate và tmp_fact_exchange_rate
                         } catch (SQLException ex) {
                             throw new Exception("SP Clean error: " + ex.getMessage());
                         }
@@ -52,22 +57,22 @@ public class StagingLoader {
             int errorLines = 0;
 
             String sql = "INSERT INTO stg_exchange_rate (sourceDateUTC, sourceDateVN, baseCurrency, currency, rate, source_link, loadedAt) VALUES (?,?,?,?,?,?,NOW())";
-
             try (BufferedReader br = new BufferedReader(new FileReader(args[0]));
                  PreparedStatement ps = conn.prepareStatement(sql)) {
 
                 String line;
                 while ((line = br.readLine()) != null) {
+                    // 8. Đọc từng dòng trong file csv để thêm vào stg_exchange_staging
                     totalLines++;
                     try {
                         String[] d = line.split(",");
 
-                        // Validate số lượng cột (Giả sử cần ít nhất 6 cột)
+                        // Kiểm tra có đủ cột theo quy định hay không (số cột =6)
                         if (d.length < 6) {
                             throw new Exception("Missing columns");
                         }
 
-                        // Parse dữ liệu (Dễ lỗi nhất ở đây)
+                        // Parse từng dữ liệu từ string về kiểu dữ liệu trong stg_exchange_rate
                         LocalDateTime dtUTC = LocalDateTime.parse(d[0], formatter);
                         LocalDateTime dtVN = LocalDateTime.parse(d[1], formatter);
                         double rate = Double.parseDouble(d[4]);
@@ -85,7 +90,7 @@ public class StagingLoader {
 
                         // Batch size 1000 để tối ưu
                         if (successLines % 1000 == 0) {
-                            ps.executeBatch();
+                            ps.executeBatch(); //Gọi query insert 1000 dòng dữ liệu trong 1 batch vào trong stg_exchange_staging
                             conn.commit(); // Commit từng phần để tránh rollback tất cả nếu lỗi
                         }
 
@@ -102,12 +107,12 @@ public class StagingLoader {
                     }
                 }
 
-                // Execute phần còn lại
+                // Execute phần còn lại (nếu totalLine >1000)
                 ps.executeBatch();
                 conn.commit();
             }
 
-            // 4. TỔNG KẾT
+            // 9. Kiểm tra loading có thành công không.
             String msg = "Staging Finished. Total: " + totalLines + ", Success: " + successLines + ", Errors: " + errorLines;
             System.out.println(msg);
 
