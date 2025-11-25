@@ -19,6 +19,8 @@ public class DBConnector {
     public static String DB_CONTROL = "db_control"; // Giá trị mặc định, sẽ bị ghi đè bởi .env
     public static String DB_STAGING = "db_exchange_staging";
     public static String DB_WAREHOUSE = "db_exchange_warehouse";
+    public static String DB_MART = "db_mart";
+
 
     // Khối static: Load cấu hình 1 lần duy nhất
     static {
@@ -42,6 +44,7 @@ public class DBConnector {
                             case "MYSQL_CONTROL": DB_CONTROL = val; break;
                             case "MYSQL_STAGING": DB_STAGING = val; break;
                             case "MYSQL_WAREHOUSE": DB_WAREHOUSE = val; break;
+                            case "MYSQL_USER": DB_USER = val; break;
                             case "MYSQL_ROOT_PASSWORD": DB_PASS = val; break;
                         }
                     }
