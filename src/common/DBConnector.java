@@ -26,7 +26,7 @@ public class DBConnector {
     static {
         loadEnv();
     }
-
+    //1. Load config
     private static void loadEnv() {
         try {
             File envFile = new File(ENV_PATH);
